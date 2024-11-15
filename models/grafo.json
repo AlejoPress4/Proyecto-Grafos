@@ -1,77 +1,104 @@
 [
     {
-        "name": "Tanque A",
-        "type": "tank",
+        "name": "Alfa",
+        "type": "neighborhood",
         "connections": [
+            "+Tanque 1",
+            "+Tanque 2",
+            "+Tanque 3"
+        ],
+        "elements": [
+            {
+                "name": "Tanque 1",
+                "type": "tank",
+                "connections": [
+                    "-Barrio Alfa",
+                    "+Tanque 2"
+                ]
+            },
+            {
+                "name": "Tanque 2",
+                "type": "tank",
+                "connections": [
+                    "-Tanque 1",
+                    "+Tanque 3"
+                ]
+            },
+            {
+                "name": "Tanque 3",
+                "type": "tank",
+                "connections": [
+                    "-Tanque 2"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Beta",
+        "type": "neighborhood",
+        "connections": [
+            "+Tanque A",
             "+Tanque B",
-            "-Chipre",
-            "+Tanque C",
-            "+Tanque D"
+            "+Tanque C"
+        ],
+        "elements": [
+            {
+                "name": "Tanque A",
+                "type": "tank",
+                "connections": [
+                    "-Barrio Beta",
+                    "+Tanque B"
+                ]
+            },
+            {
+                "name": "Tanque B",
+                "type": "tank",
+                "connections": [
+                    "-Tanque A",
+                    "+Tanque C"
+                ]
+            },
+            {
+                "name": "Tanque C",
+                "type": "tank",
+                "connections": [
+                    "-Tanque B"
+                ]
+            }
         ]
     },
     {
-        "name": "Tanque B",
-        "type": "tank",
-        "connections": [
-            "-Tanque A",
-            "+Chipre",
-            "-Tanque D"
-        ]
-    },
-    {
-        "name": "Chipre",
+        "name": "Gamma",
         "type": "neighborhood",
         "connections": [
-            "+Tanque A",
-            "-Tanque B",
-            "+Fatima",
-            "-Tanque C"
-        ]
-    },
-    {
-        "name": "Fatima",
-        "type": "neighborhood",
-        "connections": [
-            "+Tanque C",
-            "-Tanque D",
-            "+Chipre",
-            "-Tanque A"
-        ]
-    },
-    {
-        "name": "Tanque C",
-        "type": "tank",
-        "connections": [
-            "+Fatima",
-            "-Tanque A",
-            "+Chipre"
-        ]
-    },
-    {
-        "name": "Tanque D",
-        "type": "tank",
-        "connections": [
-            "-Fatima",
-            "+Tanque A",
-            "-Tanque B"
-        ]
-    },
-    {
-        "name": "Peralonso",
-        "type": "neighborhood",
-        "connections": [
-            "+Tanque C",
-            "+tanque D",
-            "-Fatima"
-        ]
-    },
-    {
-        "name": "Tanque E",
-        "type": "tank",
-        "connections": [
-            "+Peralonso",
-            "Tanque B",
-            "+Tanque A"
+            "+Tanque X",
+            "+Tanque Y",
+            "+Tanque Z"
+        ],
+        "elements": [
+            {
+                "name": "Tanque X",
+                "type": "tank",
+                "connections": [
+                    "-Barrio Gamma",
+                    "+Tanque Y"
+                ]
+            },
+            {
+                "name": "Tanque Y",
+                "type": "tank",
+                "connections": [
+                    "-Tanque X",
+                    "+Tanque Z"
+                ]
+            },
+            {
+                "name": "Tanque Z",
+                "type": "tank",
+                "connections": [
+                    "-Tanque Y"
+                ]
+            }
         ]
     }
 ]
