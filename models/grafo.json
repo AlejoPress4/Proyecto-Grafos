@@ -1,0 +1,77 @@
+[
+    {
+        "name": "Tanque A",
+        "type": "tank",
+        "connections": [
+            "+Tanque B",
+            "-Chipre",
+            "+Tanque C",
+            "+Tanque D"
+        ]
+    },
+    {
+        "name": "Tanque B",
+        "type": "tank",
+        "connections": [
+            "-Tanque A",
+            "+Chipre",
+            "-Tanque D"
+        ]
+    },
+    {
+        "name": "Chipre",
+        "type": "neighborhood",
+        "connections": [
+            "+Tanque A",
+            "-Tanque B",
+            "+Fatima",
+            "-Tanque C"
+        ]
+    },
+    {
+        "name": "Fatima",
+        "type": "neighborhood",
+        "connections": [
+            "+Tanque C",
+            "-Tanque D",
+            "+Chipre",
+            "-Tanque A"
+        ]
+    },
+    {
+        "name": "Tanque C",
+        "type": "tank",
+        "connections": [
+            "+Fatima",
+            "-Tanque A",
+            "+Chipre"
+        ]
+    },
+    {
+        "name": "Tanque D",
+        "type": "tank",
+        "connections": [
+            "-Fatima",
+            "+Tanque A",
+            "-Tanque B"
+        ]
+    },
+    {
+        "name": "Peralonso",
+        "type": "neighborhood",
+        "connections": [
+            "+Tanque C",
+            "+tanque D",
+            "-Fatima"
+        ]
+    },
+    {
+        "name": "Tanque E",
+        "type": "tank",
+        "connections": [
+            "+Peralonso",
+            "Tanque B",
+            "+Tanque A"
+        ]
+    }
+]
