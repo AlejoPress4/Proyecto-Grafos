@@ -176,7 +176,7 @@ class WaterSystemGraphVisualizer(QMainWindow):
     def add_neighborhood(self):
         """Add a new neighborhood with specified tanks, houses, and their connections."""
         # Prompt for neighborhood name
-        name, ok = QInputDialog.getText(self, 'Neighborhood Name', 'Ingrese el nombre del nuevo barrio:')
+        name, ok = QInputDialog.getText(self, 'Nombre del barrio', 'Ingrese el nombre del nuevo barrio:')
         if not ok:
             return
 
