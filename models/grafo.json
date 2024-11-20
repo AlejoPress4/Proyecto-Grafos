@@ -1,103 +1,142 @@
 [
     {
-        "name": "Alfa",
-        "type": "neighborhood",
-        "connections": [
-            "+Tanque 1",
-            "+Tanque 2",
-            "+Tanque 3"
-        ],
+        "name": "Barrio Alfa",
         "elements": [
             {
                 "name": "Tanque 1",
                 "type": "tank",
-                "connections": [
-                    "-Barrio Alfa",
-                    "+Tanque 2"
-                ]
+                "max_capacity": 1200,
+                "current_capacity": 800,
+                "input_rate": 50,
+                "output_rate": 40,
+                "connections": ["+Casa A", "+Tanque 2"]
             },
             {
                 "name": "Tanque 2",
                 "type": "tank",
-                "connections": [
-                    "-Tanque 1",
-                    "+Tanque 3"
-                ]
+                "max_capacity": 1000,
+                "current_capacity": 600,
+                "input_rate": 60,
+                "output_rate": 50,
+                "connections": ["Tanque 1", "+Casa B", "+Tanque 3"]
             },
             {
                 "name": "Tanque 3",
                 "type": "tank",
-                "connections": [
-                    "-Tanque 2"
-                ]
+                "max_capacity": 900,
+                "current_capacity": 700,
+                "input_rate": 40,
+                "output_rate": 30,
+                "connections": ["-Tanque 2", "+Casa C"]
+            },
+            {
+                "name": "Casa A",
+                "type": "house",
+                "connections": ["-Tanque 1"]
+            },
+            {
+                "name": "Casa B",
+                "type": "house",
+                "connections": ["-Tanque 2"]
+            },
+            {
+                "name": "Casa C",
+                "type": "house",
+                "connections": ["-Tanque 3"]
             }
         ]
     },
     {
-        "name": "Beta",
-        "type": "neighborhood",
-        "connections": [
-            "+Tanque A",
-            "+Tanque B",
-            "+Tanque C"
-        ],
+        "name": "Barrio Beta",
         "elements": [
             {
                 "name": "Tanque A",
                 "type": "tank",
-                "connections": [
-                    "-Barrio Beta",
-                    "+Tanque B"
-                ]
+                "max_capacity": 1300,
+                "current_capacity": 900,
+                "input_rate": 70,
+                "output_rate": 60,
+                "connections": ["+Casa X", "+Tanque B"]
             },
             {
                 "name": "Tanque B",
                 "type": "tank",
-                "connections": [
-                    "-Tanque A",
-                    "+Tanque C"
-                ]
+                "max_capacity": 1100,
+                "current_capacity": 700,
+                "input_rate": 50,
+                "output_rate": 40,
+                "connections": ["+Tanque A", "+Casa Y", "+Tanque C"]
             },
             {
                 "name": "Tanque C",
                 "type": "tank",
-                "connections": [
-                    "-Tanque B"
-                ]
+                "max_capacity": 950,
+                "current_capacity": 600,
+                "input_rate": 30,
+                "output_rate": 20,
+                "connections": ["-Tanque B", "+Casa Z"]
+            },
+            {
+                "name": "Casa X",
+                "type": "house",
+                "connections": ["-Tanque A"]
+            },
+            {
+                "name": "Casa Y",
+                "type": "house",
+                "connections": ["-Tanque B"]
+            },
+            {
+                "name": "Casa Z",
+                "type": "house",
+                "connections": ["-Tanque C"]
             }
         ]
     },
     {
-        "name": "Gamma",
-        "type": "neighborhood",
-        "connections": [
-            "+Tanque X",
-            "+Tanque Y",
-            "+Tanque Z"
-        ],
+        "name": "Barrio Gamma",
         "elements": [
             {
                 "name": "Tanque X",
                 "type": "tank",
-                "connections": [
-                    "-Barrio Gamma",
-                    "+Tanque Y"
-                ]
+                "max_capacity": 1400,
+                "current_capacity": 1000,
+                "input_rate": 80,
+                "output_rate": 70,
+                "connections": ["+Casa 1", "+Tanque Y"]
             },
             {
                 "name": "Tanque Y",
                 "type": "tank",
-                "connections": [
-                    "-Tanque X",
-                    "+Tanque Z"
-                ]
+                "max_capacity": 1150,
+                "current_capacity": 750,
+                "input_rate": 60,
+                "output_rate": 50,
+                "connections": ["Tanque X", "+Casa 2", "+Tanque Z"]
             },
             {
                 "name": "Tanque Z",
                 "type": "tank",
-                "connections": [
-                    "-Tanque Y"
-                ]
+                "max_capacity": 1000,
+                "current_capacity": 650,
+                "input_rate": 40,
+                "output_rate": 30,
+                "connections": ["-Tanque Y", "+Casa 3"]
+            },
+            {
+                "name": "Casa 1",
+                "type": "house",
+                "connections": ["-Tanque X"]
+            },
+            {
+                "name": "Casa 2",
+                "type": "house",
+                "connections": ["-Tanque Y"]
+            },
+            {
+                "name": "Casa 3",
+                "type": "house",
+                "connections": ["-Tanque Z"]
             }
         ]
     }

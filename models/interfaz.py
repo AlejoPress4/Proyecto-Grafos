@@ -1,63 +1,64 @@
 import sys
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QMessageBox, QScrollArea
-from PyQt5.QtCore import Qt
+import matplotlib.pyplot as plt
 import networkx as nx
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QMessageBox, QTabWidget, QLineEdit, QInputDialog
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
-class GraphVisualizer(QMainWindow):
+class WaterSystemGraphVisualizer(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Graph Visualization")
-        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle("Tuberiaaaas")
+        self.setGeometry(100, 100, 1000, 700)
 
-        # Configuración de la interfaz gráfica
-        central_widget = QWidget()
+        # Central widget with tab system
+        self.central_widget = QWidget()
+        self.tab_widget = QTabWidget()
         layout = QVBoxLayout()
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+        layout.addWidget(self.tab_widget)
+        self.central_widget.setLayout(layout)
+        self.setCentralWidget(self.central_widget)
 
-        # Botones para cargar, organizar y guardar el grafo
-        self.load_button = QPushButton("Load Graph")
-        self.layout_button = QPushButton("Layout Graph")
-        self.save_button = QPushButton("Save Graph")
-        layout.addWidget(self.load_button)
-        layout.addWidget(self.layout_button)
-        layout.addWidget(self.save_button)
+        # Graph visualization tab
+        self.graph_tab = QWidget()
+        graph_layout = QVBoxLayout()
 
-        # Crear área de desplazamiento (scroll)
-        self.scroll_area = QScrollArea(self)
-        self.scroll_area.setWidgetResizable(True)  # Permitir que el widget se redimensione
-        layout.addWidget(self.scroll_area)
-
-        # Área de visualización del grafo
-        self.figure = Figure(figsize=(10, 8))  # Aumentar tamaño de la figura para más espacio
-        self.canvas = FigureCanvas(self.figure)
-
-        # Configuración del canvas y añadirlo al scroll
-        self.scroll_area.setWidget(self.canvas)
-
-        # Conectar los botones a sus funciones
+        # Button for loading graph
+        self.load_button = QPushButton("Cargar grafo")
         self.load_button.clicked.connect(self.load_graph)
-        self.layout_button.clicked.connect(self.layout_graph)
-        self.save_button.clicked.connect(self.save_graph)
+        graph_layout.addWidget(self.load_button)
 
-        # Almacenar los datos cargados
+        # Button for adding a neighborhood
+        self.add_neighborhood_button = QPushButton("Agregar Barrio")
+        self.add_neighborhood_button.clicked.connect(self.add_neighborhood)
+        graph_layout.addWidget(self.add_neighborhood_button)
+
+        # Graph canvas
+        self.graph_figure = Figure(figsize=(10, 8))
+        self.graph_canvas = FigureCanvas(self.graph_figure)
+        graph_layout.addWidget(self.graph_canvas)
+
+        self.graph_tab.setLayout(graph_layout)
+        self.tab_widget.addTab(self.graph_tab, "Vista del grafo")
+
+        self.capacity_tab = QWidget()
+        capacity_layout = QVBoxLayout()
+        self.capacity_figure = Figure(figsize=(10, 8))
+        self.capacity_canvas = FigureCanvas(self.capacity_figure)
+        capacity_layout.addWidget(self.capacity_canvas)
+        self.capacity_tab.setLayout(capacity_layout)
+
         self.last_loaded_data = None
-
-        # Variables para el desplazamiento y el zoom
-        self.last_mouse_pos = None
-        self.zoom_factor = 1.0  # Factor de zoom inicial
-        self.offset_x = 0
-        self.offset_y = 0
+        self.neighborhoods_data = []  # List to store the neighborhoods
 
     def load_graph(self):
-        """Abrir un archivo JSON para cargar el grafo."""
+        """Open a JSON file to load graph data with tanks and houses."""
         file_path, _ = QFileDialog.getOpenFileName(self, "Open JSON File", "", "JSON Files (*.json)")
         if file_path:
             try:
@@ -68,49 +69,21 @@ class GraphVisualizer(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load graph: {str(e)}")
 
-    def construct_graph(self, json_data):
-        """Construir un grafo de NetworkX a partir de datos JSON."""
-        G = nx.Graph()
-
-        # Agregar nodos al grafo
-        for node in json_data:
-            G.add_node(node['name'], type=node['type'])
-
-            # Agregar elementos (tanques) dentro de cada barrio
-            if 'elements' in node:
-                for element in node['elements']:
-                    G.add_node(element['name'], type=element['type'])
-                    for connection in element['connections']:
-                        if connection.startswith('+'):
-                            G.add_edge(element['name'], connection[1:], direction='right')
-                        elif connection.startswith('-'):
-                            G.add_edge(connection[1:], element['name'], direction='left')
-                        else:
-                            G.add_edge(element['name'], connection, direction='both')
-
-        # Agregar conexiones entre barrios
-        for node in json_data:
-            for connection in node['connections']:
-                if connection.startswith('+'):
-                    G.add_edge(node['name'], connection[1:], direction='right')
-                elif connection.startswith('-'):
-                    G.add_edge(connection[1:], node['name'], direction='left')
-                else:
-                    G.add_edge(node['name'], connection, direction='both')
-
-        return G
-
     def draw_graph(self, data):
-        """Visualizar el grafo en el área de la figura."""
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
+        """Visualize the graph structure with tanks and houses."""
+        self.graph_figure.clear()
+        ax = self.graph_figure.add_subplot(111)
 
         try:
-            # Construir y dibujar el grafo
+            # Construct graph
             graph = self.construct_graph(data)
-            pos = nx.spring_layout(graph, k=0.5)  # Ajustar el parámetro k para espaciar más los nodos
+            pos = self.assign_positions(data, graph)
 
-            # Colorear las aristas según la dirección
+            # Differentiate tanks and houses
+            tank_nodes = [n for n, attr in graph.nodes(data=True) if attr['type'] == 'tank']
+            house_nodes = [n for n, attr in graph.nodes(data=True) if attr['type'] == 'house']
+
+            # Color edges by direction
             edge_colors = [
                 'blue' if graph.edges[edge].get('direction') == 'right'
                 else 'red' if graph.edges[edge].get('direction') == 'left'
@@ -118,72 +91,126 @@ class GraphVisualizer(QMainWindow):
                 for edge in graph.edges
             ]
 
-            # Dibujar el grafo con colores
-            nx.draw(graph, pos, with_labels=True, ax=ax, node_color='lightblue', edge_color=edge_colors, width=2)
-            self.canvas.draw()
+            # Create custom labels for nodes (tank and house labels)
+            node_labels = {}
+            for node in tank_nodes:
+                # Get the corresponding node's information
+                node_data = [element for neighborhood in data for element in neighborhood['elements'] if element['name'] == node]
+                if node_data:
+                    node_data = node_data[0]  # Get the first match
+                    label = f"{node_data['name']}\nCap: {node_data['current_capacity']}L\nIn: {node_data['input_rate']}L/s\nOut: {node_data['output_rate']}L/s"
+                    node_labels[node] = label
+
+            for node in house_nodes:
+                # Get the corresponding node's information for houses
+                node_data = [element for neighborhood in data for element in neighborhood['elements'] if element['name'] == node]
+                if node_data:
+                    node_data = node_data[0]  # Get the first match
+                    label = f"{node_data['name']}\nConexiones: {len(node_data.get('connections', []))}"
+                    node_labels[node] = label
+
+            # Draw graph with custom node labels
+            nx.draw(graph, pos, with_labels=True, ax=ax,
+                    node_color=['lightblue' if n in tank_nodes else 'lightgreen' for n in graph.nodes()],
+                    edge_color=edge_colors,
+                    width=1,
+                    node_size=2000,
+                    font_size=10,
+                    arrows=False,
+                    alpha=0.7,
+                    labels=node_labels)  # Add custom labels to the nodes
+
+            self.graph_canvas.draw()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error drawing the graph: {str(e)}")
 
-    def layout_graph(self):
-        """Reorganizar el grafo y actualizar la visualización."""
-        QMessageBox.information(self, "Info", "Reorganizing graph layout...")
+    def construct_graph(self, json_data):
+        """Build a NetworkX graph from JSON data."""
+        G = nx.DiGraph()
 
-        try:
-            # Reorganizar el grafo con un mayor valor de k para más separación
-            self.draw_graph(self.last_loaded_data)
-        except AttributeError:
-            QMessageBox.warning(self, "Warning", "No graph loaded to rearrange.")
+        # Add nodes and edges
+        for neighborhood in json_data:
+            for element in neighborhood['elements']:
+                G.add_node(element['name'], type=element['type'])
+                for connection in element.get('connections', []):
+                    if connection.startswith('+'):
+                        G.add_edge(element['name'], connection[1:], direction='right')
+                    elif connection.startswith('-'):
+                        G.add_edge(connection[1:], element['name'], direction='left')
+                    else:
+                        G.add_edge(element['name'], connection, direction='both')
 
-    def save_graph(self):
-        """Guardar la visualización actual del grafo como imagen."""
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Graph", "", "PNG Files (*.png)")
-        if file_path:
-            try:
-                self.figure.savefig(file_path, format='png')
-                QMessageBox.information(self, "Success", "Graph saved successfully!")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save graph: {str(e)}")
+        return G
 
-    def wheelEvent(self, event):
-        """Implementar zoom al hacer scroll con el mouse."""
-        scale_factor = 1.1
-        if event.angleDelta().y() > 0:  # Zoom in
-            self.zoom_factor *= scale_factor
-        else:  # Zoom out
-            self.zoom_factor /= scale_factor
+    def assign_positions(self, data, graph):
+        """Assign positions to nodes to separate subgraphs visually."""
+        positions = {}
+        offset_x = 0  # Horizontal offset between subgraphs
+        offset_y = 0  # Vertical offset
 
-        # Ajustar la visualización para que se mantenga centrada y escalada correctamente
-        self.draw_graph(self.last_loaded_data)
-        self.canvas.draw()
+        for neighborhood in data:
+            # Determine nodes in this subgraph
+            subgraph_nodes = [element['name'] for element in neighborhood['elements']]
 
-    def mousePressEvent(self, event):
-        """Detectar el clic del ratón para comenzar el desplazamiento."""
-        if event.button() == Qt.LeftButton:
-            self.last_mouse_pos = event.pos()
+            # Create a layout for the subgraph
+            subgraph = graph.subgraph(subgraph_nodes)
+            subgraph_positions = nx.spring_layout(subgraph, k=5)
 
-    def mouseMoveEvent(self, event):
-        """Desplazar el grafo cuando se mueve el ratón mientras se mantiene presionado el botón izquierdo."""
-        if self.last_mouse_pos:
-            dx = event.pos().x() - self.last_mouse_pos.x()
-            dy = event.pos().y() - self.last_mouse_pos.y()
+            # Offset the positions for separation
+            for node, pos in subgraph_positions.items():
+                positions[node] = (pos[0] + offset_x, pos[1] + offset_y)
 
-            # Actualizamos las barras de desplazamiento
-            self.scroll_area.horizontalScrollBar().setValue(self.scroll_area.horizontalScrollBar().value() - dx)
-            self.scroll_area.verticalScrollBar().setValue(self.scroll_area.verticalScrollBar().value() - dy)
+            # Adjust offsets for the next subgraph
+            offset_x += 3  # Increase horizontal spacing to separate subgraphs
+            offset_y -= 3  # Adjust vertical position slightly for better separation
 
-            # Movemos el gráfico
-            self.offset_x += dx
-            self.offset_y += dy
+        return positions
 
-            self.last_mouse_pos = event.pos()
+    def add_neighborhood(self):
+        """Add a new neighborhood with tanks and houses."""
+        name, ok = QInputDialog.getText(self, 'Neighborhood Name', 'Enter the name of the new neighborhood:')
+        if ok:
+            new_neighborhood = {'name': name, 'elements': []}
+            self.add_tank_to_neighborhood(new_neighborhood)
+            self.add_house_to_neighborhood(new_neighborhood)
 
-    def mouseReleaseEvent(self, event):
-        """Restablecer el estado de desplazamiento al soltar el botón del ratón."""
-        self.last_mouse_pos = None
+            self.neighborhoods_data.append(new_neighborhood)
+            self.draw_graph(self.neighborhoods_data)  # Redraw the graph with the new neighborhood
+
+    def add_tank_to_neighborhood(self, neighborhood):
+        """Add a new tank to a given neighborhood."""
+        tank_name, ok = QInputDialog.getText(self, 'Tank Name', 'Enter the tank name:')
+        if ok:
+            capacity, ok = QInputDialog.getInt(self, 'Tank Capacity', 'Enter the tank capacity (L):')
+            if ok:
+                input_rate, ok = QInputDialog.getInt(self, 'Input Rate', 'Enter the input rate (L/s):')
+                if ok:
+                    output_rate, ok = QInputDialog.getInt(self, 'Output Rate', 'Enter the output rate (L/s):')
+                    if ok:
+                        tank_data = {
+                            'name': tank_name,
+                            'type': 'tank',
+                            'current_capacity': capacity,
+                            'input_rate': input_rate,
+                            'output_rate': output_rate,
+                            'connections': []
+                        }
+                        neighborhood['elements'].append(tank_data)
+
+    def add_house_to_neighborhood(self, neighborhood):
+        """Add a new house to a given neighborhood."""
+        house_name, ok = QInputDialog.getText(self, 'House Name', 'Enter the house name:')
+        if ok:
+            house_data = {
+                'name': house_name,
+                'type': 'house',
+                'connections': []
+            }
+            neighborhood['elements'].append(house_data)
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    visualizer = GraphVisualizer()
+    visualizer = WaterSystemGraphVisualizer()
     visualizer.show()
     sys.exit(app.exec_())
