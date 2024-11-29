@@ -1,33 +1,87 @@
+import networkx as nx
 import json
-import heapq
+import math
 
-class RedAcueducto:
-    def __init__(self):
-        self.barrios = {}
-        self.tanques = {}
-        self.conexiones = {}
+def load_graph_from_json(file_path):
+    """Cargar un grafo desde un archivo JSON, procesando direcciones con prefijos."""
+    import json
+    with open(file_path, 'r') as f:
+        data = json.load(f)
 
-    def cargar_desde_json(self, archivo):
-        with open(archivo, 'r') as f:
-            data = json.load(f)
-            self._procesar_datos(data)
+    # Crear grafo dirigido
+    G = nx.DiGraph()
 
-    def _procesar_datos(self, data):
-        # Procesar barrios
-        for barrio in data.get('barrios', []):
-            self.barrios[barrio['id']] = barrio
+    for neighborhood in data:
+        for element in neighborhood['elements']:
+            # Añadir nodo con atributos
+            G.add_node(element['name'], **{k: v for k, v in element.items() if k != 'connections'})
 
-        # Procesar tanques
-        for tanque in data.get('tanques', []):
-            self.tanques[tanque['id']] = tanque
+            # Procesar conexiones
+            for connection in element.get('connections', []):
+                # Validar que la conexión tiene un nodo destino definido
+                target = connection['target']
+                capacity = connection.get('capacity', 0)
 
-        # Procesar conexiones
-        for conexion in data.get('conexiones', []):
-            self._agregar_conexion(conexion['origen'], conexion['destino'], conexion['peso'])
+                # Determinar la dirección según el prefijo
+                if target.startswith('+'):
+                    dest = target[1:]  # Eliminar el prefijo '+'
+                    G.add_edge(element['name'], dest, capacidad=capacity, direction='right')
+                elif target.startswith('-'):
+                    dest = target[1:]  # Eliminar el prefijo '-'
+                    G.add_edge(dest, element['name'], capacidad=capacity, direction='left')
+                else:
+                    # Sin prefijo, conexión bidireccional por defecto
+                    dest = target
+                    G.add_edge(element['name'], dest, capacidad=capacity, direction='both')
 
-        self._verificar_consistencia()
+    return G, data
 
-    def _agregar_conexion(self, origen, destino, peso):
+
+
+
+def calculate_max_flow(G, source=None, sink=None):
+    """Calcular flujo máximo usando Ford-Fulkerson"""
+    # Si no se especifican fuente y sumidero, intentar encontrarlos
+    if source is None:
+        source = [n for n in G.nodes() if G.nodes[n].get('type') == 'tank'][0]
+    
+    if sink is None:
+        sink = [n for n in G.nodes() if G.nodes[n].get('type') == 'house'][-1]
+    
+    try:
+        # Calcular flujo máximo
+        max_flow_value, max_flow_dict = nx.maximum_flow(G, source, sink)
+        return max_flow_value, max_flow_dict
+    except Exception as e:
+        print(f"Error calculando flujo máximo: {e}")
+        return 0, {}
+
+
+import networkx as nx
+import math
+
+def assign_graph_positions(graph, data):
+    """Asigna posiciones a los nodos, separando los barrios en disposición circular."""
+    pos = {}
+    x_offset = 0  # Desplazamiento horizontal inicial entre barrios
+
+    for i, neighborhood in enumerate(data):
+        # Extraer los nodos del barrio
+        nodes = [element['name'] for element in neighborhood['elements']]
+
+        # Generar un layout circular para los nodos del barrio
+        circular_pos = nx.circular_layout(graph.subgraph(nodes))
+
+        # Ajustar el layout circular con un desplazamiento horizontal único por barrio
+        for node, (x, y) in circular_pos.items():
+            pos[node] = (x + x_offset, y)
+
+        # Incrementar el desplazamiento horizontal para el siguiente barrio
+        x_offset += 3  # Ajusta el valor según el espacio necesario entre barrios
+
+    return pos
+
+def _agregar_conexion(self, origen, destino, peso):
         if origen not in self.barrios and origen not in self.tanques:
             raise ValueError(f"Origen {origen} no definido")
         if destino not in self.barrios and destino not in self.tanques:
@@ -38,76 +92,4 @@ class RedAcueducto:
             self.conexiones[origen] = []
         self.conexiones[origen].append((destino, peso))
 
-    def _verificar_consistencia(self):
-        # Verificar bucles y conexiones inválidas
-        visitados = set()
-        for origen in self.conexiones:
-            if not self._dfs(origen, visitados, set()):
-                raise ValueError(f"Bucle detectado en la red a partir de {origen}")
 
-    def _dfs(self, nodo, visitados, en_curso):
-        if nodo in en_curso:
-            return False
-        if nodo in visitados:
-            return True
-        en_curso.add(nodo)
-        for vecino, _ in self.conexiones.get(nodo, []):
-            if not self._dfs(vecino, visitados, en_curso):
-                return False
-        en_curso.remove(nodo)
-        visitados.add(nodo)
-        return True
-
-    def agregar_barrio(self, id, nombre):
-        if id in self.barrios:
-            raise ValueError(f"Barrio {id} ya existe")
-        self.barrios[id] = {'id': id, 'nombre': nombre}
-
-    def eliminar_barrio(self, id):
-        if id not in self.barrios:
-            raise ValueError(f"Barrio {id} no existe")
-        del self.barrios[id]
-        # Eliminar conexiones relacionadas
-        self.conexiones = {k: v for k, v in self.conexiones.items() if k != id and id not in v}
-
-    def agregar_tanque(self, id, capacidad):
-        if id in self.tanques:
-            raise ValueError(f"Tanque {id} ya existe")
-        self.tanques[id] = {'id': id, 'capacidad': capacidad}
-
-    def eliminar_tanque(self, id):
-        if id not in self.tanques:
-            raise ValueError(f"Tanque {id} no existe")
-        del self.tanques[id]
-        # Eliminar conexiones relacionadas
-        self.conexiones = {k: v for k, v in self.conexiones.items() if k != id and id not in v}
-
-    def agregar_conexion(self, origen, destino, peso):
-        self._agregar_conexion(origen, destino, peso)
-        self._verificar_consistencia()
-
-    def eliminar_conexion(self, origen, destino):
-        if origen in self.conexiones and destino in self.conexiones[origen]:
-            self.conexiones[origen] = [conn for conn in self.conexiones[origen] if conn[0] != destino]
-        self._verificar_consistencia()
-
-    def encontrar_ruta_optima(self, origen, destino):
-        # Implementar el algoritmo de Dijkstra
-        distancias = {nodo: float('inf') for nodo in self.barrios}
-        distancias[origen] = 0
-        pq = [(0, origen)]
-        while pq:
-            (dist_actual, nodo_actual) = heapq.heappop(pq)
-            if dist_actual > distancias[nodo_actual]:
-                continue
-            for vecino, peso in self.conexiones.get(nodo_actual, []):
-                distancia = dist_actual + peso
-                if distancia < distancias[vecino]:
-                    distancias[vecino] = distancia
-                    heapq.heappush(pq, (distancia, vecino))
-        return distancias[destino]
-
-# Ejemplo de uso
-red = RedAcueducto()
-red.cargar_desde_json('red_acueducto.json')
-print(red.encontrar_ruta_optima('barrio1', 'barrio5'))

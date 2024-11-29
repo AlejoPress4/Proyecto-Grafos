@@ -9,7 +9,16 @@
                 "current_capacity": 800,
                 "input_rate": 50,
                 "output_rate": 40,
-                "connections": ["+Casa A", "+Tanque 2"]
+                "connections": [
+                    {
+                        "target": "+Casa A",
+                        "capacity": 30
+                    },
+                    {
+                        "target": "+Tanque 2",
+                        "capacity": 50
+                    }
+                ]
             },
             {
                 "name": "Tanque 2",
@@ -18,7 +27,20 @@
                 "current_capacity": 600,
                 "input_rate": 60,
                 "output_rate": 50,
-                "connections": ["Tanque 1", "+Casa B", "+Tanque 3"]
+                "connections": [
+                    {
+                        "target": "Tanque 1",
+                        "capacity": 50
+                    },
+                    {
+                        "target": "+Casa B",
+                        "capacity": 40
+                    },
+                    {
+                        "target": "+Tanque 3",
+                        "capacity": 60
+                    }
+                ]
             },
             {
                 "name": "Tanque 3",
@@ -27,22 +49,46 @@
                 "current_capacity": 700,
                 "input_rate": 40,
                 "output_rate": 30,
-                "connections": ["-Tanque 2", "+Casa C"]
+                "connections": [
+                    {
+                        "target": "-Tanque 2",
+                        "capacity": 60
+                    },
+                    {
+                        "target": "+Casa C",
+                        "capacity": 20
+                    }
+                ]
             },
             {
                 "name": "Casa A",
                 "type": "house",
-                "connections": ["-Tanque 1"]
+                "connections": [
+                    {
+                        "target": "-Tanque 1",
+                        "capacity": 30
+                    }
+                ]
             },
             {
                 "name": "Casa B",
                 "type": "house",
-                "connections": ["-Tanque 2"]
+                "connections": [
+                    {
+                        "target": "-Tanque 2",
+                        "capacity": 40
+                    }
+                ]
             },
             {
                 "name": "Casa C",
                 "type": "house",
-                "connections": ["-Tanque 3"]
+                "connections": [
+                    {
+                        "target": "-Tanque 3",
+                        "capacity": 20
+                    }
+                ]
             }
         ]
     },
@@ -56,7 +102,16 @@
                 "current_capacity": 900,
                 "input_rate": 70,
                 "output_rate": 60,
-                "connections": ["+Casa X", "+Tanque B"]
+                "connections": [
+                    {
+                        "target": "+Casa X",
+                        "capacity": 40
+                    },
+                    {
+                        "target": "+Tanque B",
+                        "capacity": 70
+                    }
+                ]
             },
             {
                 "name": "Tanque B",
@@ -65,7 +120,20 @@
                 "current_capacity": 700,
                 "input_rate": 50,
                 "output_rate": 40,
-                "connections": ["+Tanque A", "+Casa Y", "+Tanque C"]
+                "connections": [
+                    {
+                        "target": "+Tanque A",
+                        "capacity": 70
+                    },
+                    {
+                        "target": "+Casa Y",
+                        "capacity": 50
+                    },
+                    {
+                        "target": "+Tanque C",
+                        "capacity": 60
+                    }
+                ]
             },
             {
                 "name": "Tanque C",
@@ -74,22 +142,46 @@
                 "current_capacity": 600,
                 "input_rate": 30,
                 "output_rate": 20,
-                "connections": ["-Tanque B", "+Casa Z"]
+                "connections": [
+                    {
+                        "target": "-Tanque B",
+                        "capacity": 60
+                    },
+                    {
+                        "target": "+Casa Z",
+                        "capacity": 25
+                    }
+                ]
             },
             {
                 "name": "Casa X",
                 "type": "house",
-                "connections": ["-Tanque A"]
+                "connections": [
+                    {
+                        "target": "-Tanque A",
+                        "capacity": 40
+                    }
+                ]
             },
             {
                 "name": "Casa Y",
                 "type": "house",
-                "connections": ["-Tanque B"]
+                "connections": [
+                    {
+                        "target": "-Tanque B",
+                        "capacity": 50
+                    }
+                ]
             },
             {
                 "name": "Casa Z",
                 "type": "house",
-                "connections": ["-Tanque C"]
+                "connections": [
+                    {
+                        "target": "-Tanque C",
+                        "capacity": 25
+                    }
+                ]
             }
         ]
     },
@@ -103,7 +195,16 @@
                 "current_capacity": 1000,
                 "input_rate": 80,
                 "output_rate": 70,
-                "connections": ["+Casa 1", "+Tanque Y"]
+                "connections": [
+                    {
+                        "target": "+Casa 1",
+                        "capacity": 60
+                    },
+                    {
+                        "target": "+Tanque Y",
+                        "capacity": 80
+                    }
+                ]
             },
             {
                 "name": "Tanque Y",
@@ -112,7 +213,20 @@
                 "current_capacity": 750,
                 "input_rate": 60,
                 "output_rate": 50,
-                "connections": ["Tanque X", "+Casa 2", "+Tanque Z"]
+                "connections": [
+                    {
+                        "target": "Tanque X",
+                        "capacity": 80
+                    },
+                    {
+                        "target": "+Casa 2",
+                        "capacity": 55
+                    },
+                    {
+                        "target": "+Tanque Z",
+                        "capacity": 65
+                    }
+                ]
             },
             {
                 "name": "Tanque Z",
@@ -121,22 +235,46 @@
                 "current_capacity": 650,
                 "input_rate": 40,
                 "output_rate": 30,
-                "connections": ["-Tanque Y", "+Casa 3"]
+                "connections": [
+                    {
+                        "target": "-Tanque Y",
+                        "capacity": 65
+                    },
+                    {
+                        "target": "+Casa 3",
+                        "capacity": 30
+                    }
+                ]
             },
             {
                 "name": "Casa 1",
                 "type": "house",
-                "connections": ["-Tanque X"]
+                "connections": [
+                    {
+                        "target": "-Tanque X",
+                        "capacity": 60
+                    }
+                ]
             },
             {
                 "name": "Casa 2",
                 "type": "house",
-                "connections": ["-Tanque Y"]
+                "connections": [
+                    {
+                        "target": "-Tanque Y",
+                        "capacity": 55
+                    }
+                ]
             },
             {
                 "name": "Casa 3",
                 "type": "house",
-                "connections": ["-Tanque Z"]
+                "connections": [
+                    {
+                        "target": "-Tanque Z",
+                        "capacity": 30
+                    }
+                ]
             }
         ]
     }
