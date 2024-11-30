@@ -1,6 +1,7 @@
 import networkx as nx
 import json
 import math
+from PyQt5.QtWidgets import QMessageBox, QInputDialog
 
 def load_graph_from_json(file_path):
     """Cargar un grafo desde un archivo JSON, procesando direcciones con prefijos."""
@@ -81,15 +82,109 @@ def assign_graph_positions(graph, data):
 
     return pos
 
-def _agregar_conexion(self, origen, destino, peso):
-        if origen not in self.barrios and origen not in self.tanques:
-            raise ValueError(f"Origen {origen} no definido")
-        if destino not in self.barrios and destino not in self.tanques:
-            raise ValueError(f"Destino {destino} no definido")
-        if origen in self.conexiones and destino in self.conexiones[origen]:
-            raise ValueError(f"Conexión duplicada entre {origen} y {destino}")
-        if origen not in self.conexiones:
-            self.conexiones[origen] = []
-        self.conexiones[origen].append((destino, peso))
+def agregar_conexion(self):
+    """Agregar una nueva conexión entre elementos del grafo."""
+    if not self.original_data:
+        QMessageBox.warning(self, "Error", "Primero cargue un grafo")
+        return
 
+    # Recopilar todos los elementos de todos los barrios
+    all_elements = []
+    for barrio in self.original_data:
+        all_elements.extend(barrio['elements'])
 
+    # Nombres de todos los elementos para selección
+    element_names = [element['name'] for element in all_elements]
+
+    if len(element_names) < 2:
+        QMessageBox.warning(self, "Error", "Se necesitan al menos dos elementos para crear una conexión")
+        return
+
+    # Seleccionar elemento de origen
+    origen, ok1 = QInputDialog.getItem(
+        self, 
+        "Seleccionar Origen", 
+        "Selecciona el elemento de origen:", 
+        element_names, 
+        0, 
+        False
+    )
+    if not ok1:
+        return
+
+    # Seleccionar elemento de destino (excluyendo el origen)
+    destino_options = [name for name in element_names if name != origen]
+    destino, ok2 = QInputDialog.getItem(
+        self, 
+        "Seleccionar Destino", 
+        f"Selecciona el elemento de destino para {origen}:", 
+        destino_options, 
+        0, 
+        False
+    )
+    if not ok2:
+        return
+
+    # Pedir capacidad de la conexión
+    capacidad, ok3 = QInputDialog.getInt(
+        self, 
+        "Capacidad de Conexión", 
+        f"Ingrese la capacidad de la conexión entre {origen} y {destino}:", 
+        min=1
+    )
+    if not ok3:
+        return
+
+    # Pedir dirección de la conexión
+    direccion, ok4 = QInputDialog.getItem(
+        self, 
+        "Dirección de Conexión", 
+        f"Seleccione la dirección de la conexión entre {origen} y {destino}:",
+        ["both", "right", "left"], 
+        0, 
+        False
+    )
+    if not ok4:
+        return
+
+    # Buscar y actualizar los elementos originales
+    for barrio in self.original_data:
+        for element in barrio['elements']:
+            # Actualizar elemento de origen
+            if element['name'] == origen:
+                connection_target = (f"+{destino}" if direccion == "right" 
+                                     else f"-{destino}" if direccion == "left" 
+                                     else destino)
+                element['connections'].append({
+                    "target": connection_target,
+                    "capacity": capacidad
+                })
+            
+            # Actualizar elemento de destino para conexión bidireccional o inversa
+            if element['name'] == destino:
+                if direccion == "right":
+                    element['connections'].append({
+                        "target": f"-{origen}",
+                        "capacity": capacidad
+                    })
+                elif direccion == "left":
+                    element['connections'].append({
+                        "target": f"+{origen}",
+                        "capacity": capacidad
+                    })
+                else:  # bidirectional
+                    element['connections'].append({
+                        "target": origen,
+                        "capacity": capacidad
+                    })
+
+    # Guardar cambios y actualizar grafo
+    self.save_json(self.original_data)
+    self.update_graph()
+
+    # Mensaje de confirmación
+    QMessageBox.information(
+        self, 
+        "Conexión Agregada", 
+        f"Conexión entre {origen} y {destino} agregada exitosamente."
+    )
