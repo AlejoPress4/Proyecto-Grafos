@@ -69,6 +69,10 @@
                     {
                         "target": "+Tanque Z",
                         "capacity": 15
+                    },
+                    {
+                        "target": "Tanque B",
+                        "capacity": 2000
                     }
                 ]
             },
@@ -156,6 +160,10 @@
                     {
                         "target": "Casa 2",
                         "capacity": 50
+                    },
+                    {
+                        "target": "Tanque 3",
+                        "capacity": 2000
                     }
                 ]
             },
@@ -233,8 +241,8 @@
                         "capacity": 15
                     },
                     {
-                        "target": "+Caza zz",
-                        "capacity": 15
+                        "target": "mari",
+                        "capacity": 58
                     }
                 ]
             },
@@ -319,6 +327,61 @@
                         "capacity": 30
                     }
                 ]
+            }
+        ]
+    },
+    {
+        "name": "Colinas",
+        "elements": [
+            {
+                "name": "Reserva",
+                "type": "tank",
+                "max_capacity": 4000,
+                "current_capacity": 130,
+                "connections": [
+                    {
+                        "target": "mari",
+                        "capacity": 3
+                    },
+                    {
+                        "target": "alejohouse",
+                        "capacity": 1200
+                    }
+                ]
+            },
+            {
+                "name": "mari",
+                "type": "house",
+                "connections": [
+                    {
+                        "target": "Reserva",
+                        "capacity": 3
+                    },
+                    {
+                        "target": "Tanque X",
+                        "capacity": 58
+                    }
+                ]
+            },
+            {
+                "name": " ",
+                "type": "house",
+                "connections": []
+            },
+            {
+                "name": "alejohouse",
+                "type": "house",
+                "connections": [
+                    {
+                        "target": "Reserva",
+                        "capacity": 1200
+                    }
+                ]
+            },
+            {
+                "name": "sebas",
+                "type": "house",
+                "connections": []
             }
         ]
     }
