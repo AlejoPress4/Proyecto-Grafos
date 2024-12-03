@@ -4,8 +4,7 @@ import math
 from PyQt5.QtWidgets import QMessageBox, QInputDialog
 
 def load_graph_from_json(file_path):
-    """Cargar un grafo desde un archivo JSON, procesando direcciones con prefijos."""
-    import json
+    """Cargar un grafo desde un archivo JSON."""
     with open(file_path, 'r') as f:
         data = json.load(f)
 
@@ -15,15 +14,13 @@ def load_graph_from_json(file_path):
     for neighborhood in data:
         for element in neighborhood['elements']:
             # Añadir nodo con atributos
-            G.add_node(element['name'], **{k: v for k, v in element.items() if k != 'connections'})
+            G.add_node(element['name'], **{k: v for k, v in element.items() if k not in ['connections', 'input_rate', 'output_rate']})
 
             # Procesar conexiones
             for connection in element.get('connections', []):
-                # Validar que la conexión tiene un nodo destino definido
                 target = connection['target']
                 capacity = connection.get('capacity', 0)
 
-                # Determinar la dirección según el prefijo
                 if target.startswith('+'):
                     dest = target[1:]  # Eliminar el prefijo '+'
                     G.add_edge(element['name'], dest, capacidad=capacity, direction='right')
@@ -31,12 +28,9 @@ def load_graph_from_json(file_path):
                     dest = target[1:]  # Eliminar el prefijo '-'
                     G.add_edge(dest, element['name'], capacidad=capacity, direction='left')
                 else:
-                    # Sin prefijo, conexión bidireccional por defecto
-                    dest = target
-                    G.add_edge(element['name'], dest, capacidad=capacity, direction='both')
+                    G.add_edge(element['name'], target, capacidad=capacity, direction='both')
 
     return G, data
-
 
 
 
@@ -62,23 +56,37 @@ import networkx as nx
 import math
 
 def assign_graph_positions(graph, data):
-    """Asigna posiciones a los nodos, separando los barrios en disposición circular."""
+    """
+    Asigna posiciones a los nodos con un espaciado más amplio entre barrios 
+    y dentro de cada barrio.
+    """
     pos = {}
-    x_offset = 0  # Desplazamiento horizontal inicial entre barrios
+    # Aumentar significativamente el desplazamiento horizontal entre barrios
+    HORIZONTAL_SPACING = 3  # Incrementado de 5 a 10
+    # Aumentar el espaciado dentro de cada barrio
+    INTERNAL_SPACING = 40  # Nuevo parámetro para espaciado interno
 
     for i, neighborhood in enumerate(data):
         # Extraer los nodos del barrio
         nodes = [element['name'] for element in neighborhood['elements']]
+        
+        # Usar spring_layout con parámetros más separados
+        subgraph = graph.subgraph(nodes)
+        
+        # Configuraciones para separar más los nodos
+        neighborhood_pos = nx.spring_layout(
+            subgraph, 
+            k=INTERNAL_SPACING,  # Aumentar distancia entre nodos
+            iterations=50,  # Más iteraciones para estabilidad
+            seed=42  # Semilla para reproducibilidad
+        )
 
-        # Generar un layout circular para los nodos del barrio
-        circular_pos = nx.circular_layout(graph.subgraph(nodes))
-
-        # Ajustar el layout circular con un desplazamiento horizontal único por barrio
-        for node, (x, y) in circular_pos.items():
-            pos[node] = (x + x_offset, y)
-
-        # Incrementar el desplazamiento horizontal para el siguiente barrio
-        x_offset += 3  # Ajusta el valor según el espacio necesario entre barrios
+        # Aplicar desplazamiento horizontal
+        for node, (x, y) in neighborhood_pos.items():
+            pos[node] = (
+                x + (i * HORIZONTAL_SPACING),  # Desplazamiento horizontal significativo
+                y  # Mantener la posición vertical original
+            )
 
     return pos
 
