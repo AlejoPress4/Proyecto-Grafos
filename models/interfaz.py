@@ -3,6 +3,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import random
@@ -21,6 +22,7 @@ class WaterSystemGraphVisualizer(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle("Sistema de Tuberías")
+        self.setWindowIcon(QIcon("icons\\tuberias.png"))
         self.setGeometry(100, 100, 1600, 800)  # Increased width to accommodate log
 
         # Widget central y layout principal
@@ -68,6 +70,15 @@ class WaterSystemGraphVisualizer(QMainWindow):
         max_flow_button = QPushButton("Calcular Flujo Máximo")
         max_flow_button.clicked.connect(self.calculate_max_flow)
         left_layout.addWidget(max_flow_button)
+        
+        change_direction_button = QPushButton("Cambiar Dirección de Conexión")
+        change_direction_button.clicked.connect(self.change_connection_direction)
+        left_layout.addWidget(change_direction_button)
+        
+        # Botón para simular obstrucción
+        simulate_obstruction_button = QPushButton("Simular Obstrucción")
+        simulate_obstruction_button.clicked.connect(self.cambiar_capacidad_conexion)
+        left_layout.addWidget(simulate_obstruction_button)
 
         # Layout para gráfico y log
         visualization_layout = QVBoxLayout()
@@ -108,9 +119,13 @@ class WaterSystemGraphVisualizer(QMainWindow):
                 # Cargar grafo desde JSON
                 self.graph, self.original_data = load_graph_from_json(self.file)
                 
+                
                 self.log_action(f"Grafo cargado desde: {os.path.basename(self.file)}")
                 # Visualizar grafo
                 self.visualize_graph()
+                
+                
+                self.analizar_grafo_y_generar_recomendaciones()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"No se pudo cargar el grafo: {str(e)}")
                 self.log_action(f"Error al cargar el grafo: {str(e)}")
@@ -122,12 +137,18 @@ class WaterSystemGraphVisualizer(QMainWindow):
         """Agregar un nuevo barrio con tanques, casas y conexiones."""
         # Pedir nombre del barrio
         barrio_name, ok = QInputDialog.getText(self, "Nuevo Barrio", "Nombre del nuevo barrio:")
-        if not ok or not barrio_name:
+        if not ok or not barrio_name.strip():  # Verificar que no esté vacío o solo contenga espacios
+            QMessageBox.warning(self, "Error", "El nombre del barrio no puede estar vacío o contener solo espacios.")
+            return
+
+        # Verificar si el barrio ya existe
+        if any(barrio['name'] == barrio_name for barrio in self.original_data):
+            QMessageBox.warning(self, "Error", f"Ya existe un barrio con el nombre '{barrio_name}'.")
             return
 
         # Crear estructura básica del barrio
         nuevo_barrio = {
-            "name": barrio_name,
+            "name": barrio_name.strip(),  # Eliminar espacios en blanco
             "elements": []
         }
 
@@ -138,26 +159,30 @@ class WaterSystemGraphVisualizer(QMainWindow):
         # Agregar múltiples tanques
         while True:
             tanque_name, ok = QInputDialog.getText(self, "Nuevo Tanque", "Nombre del tanque (deja vacío para terminar):")
-            if not ok or not tanque_name:
+            if not ok or not tanque_name.strip():  # Verificar que no esté vacío o solo contenga espacios
                 break
-            
-            max_capacity, ok = QInputDialog.getInt(self, "Max Capacity", f"Capacidad máxima de {tanque_name}:")
+
+            max_capacity, ok = QInputDialog.getInt(self, "Capacidad Máxima", f"Capacidad máxima de {tanque_name.strip()}:", min=1)
             if not ok:
                 break
 
-            current_capacity, ok = QInputDialog.getInt(self, "Current Capacity", f"Capacidad actual de {tanque_name}:")
+            current_capacity, ok = QInputDialog.getInt(self, "Capacidad Actual", f"Capacidad actual de {tanque_name.strip()}:", min=0, max=max_capacity)
             if not ok:
                 break
-
 
             # Agregar el tanque a la lista temporal
             tanques.append({
-                "name": tanque_name,
+                "name": tanque_name.strip(),  # Eliminar espacios en blanco
                 "type": "tank",
                 "max_capacity": max_capacity,
                 "current_capacity": current_capacity,
                 "connections": []  # Las conexiones se agregarán después
             })
+
+        # Validar que se haya agregado al menos un tanque
+        if not tanques:
+            QMessageBox.warning(self, "Error", "Se debe agregar al menos un tanque al barrio.")
+            return
 
         # Agregar los tanques al barrio
         nuevo_barrio["elements"].extend(tanques)
@@ -165,74 +190,134 @@ class WaterSystemGraphVisualizer(QMainWindow):
         # Agregar múltiples casas
         while True:
             casa_name, ok = QInputDialog.getText(self, "Nueva Casa", "Nombre de la casa (deja vacío para terminar):")
-            if not ok or not casa_name:
+            if not ok or not casa_name.strip():  # Verificar que no esté vacío o solo contenga espacios
                 break
 
             # Agregar la casa al barrio
             casas.append({
-                "name": casa_name,
+                "name": casa_name.strip(),  # Eliminar espacios en blanco
                 "type": "house",
                 "connections": []  # Las conexiones se agregarán después
             })
 
+        # Validar que se haya agregado al menos una casa
+        if not casas:
+            QMessageBox.warning(self, "Error", "Se debe agregar al menos una casa al barrio.")
+            return
+
         # Agregar las casas al barrio
         nuevo_barrio["elements"].extend(casas)
 
-        # Agregar las conexiones y sus capacidades
+        # Conexiones manuales
         while True:
-            # Seleccionar un tanque
-            tanque_name, ok = QInputDialog.getItem(self, "Seleccionar Tanque", "Selecciona un tanque para agregar conexiones:", 
-                                                [tanque['name'] for tanque in tanques], 0, False)
-            if not ok or not tanque_name:
-                break
-
-            # Seleccionar una casa para conectar
-            casa_name, ok = QInputDialog.getItem(self, "Seleccionar Casa", f"Selecciona una casa para conectar a {tanque_name}:",
-                                                [casa['name'] for casa in casas], 0, False)
-            if not ok or not casa_name:
-                break
-
-            # Pedir la capacidad de la conexión
-            capacity, ok = QInputDialog.getInt(self, "Capacidad de Conexión", f"Capacidad de la conexión de {tanque_name} a {casa_name}:")
+            # Mostrar lista de elementos para seleccionar origen
+            elementos = [elem['name'] for elem in tanques + casas]
+            origen, ok = QInputDialog.getItem(
+                self, 
+                "Seleccionar Origen", 
+                "Selecciona el elemento de origen (cancelar para terminar):", 
+                elementos, 
+                0, 
+                False
+            )
             if not ok:
                 break
-            
-            # Pedir la dirección de la conexión
-            direction, ok = QInputDialog.getItem(self, "Dirección de Conexión", f"Selecciona la dirección de la conexión entre {tanque_name} y {casa_name}:",
-                                                ["right", "left", "both"], 0, False)
-            if not ok or not direction:
+
+            # Mostrar lista de destinos (excluyendo el origen)
+            destinos = [elem['name'] for elem in tanques + casas if elem['name'] != origen]
+            destino, ok = QInputDialog.getItem(
+                self, 
+                "Seleccionar Destino", 
+                f"Selecciona el elemento de destino para {origen}:", 
+                destinos, 
+                0, 
+                False
+            )
+            if not ok:
+                continue
+
+            # Pedir capacidad de la conexión
+            capacidad, ok = QInputDialog.getInt(
+                self, 
+                "Capacidad de Conexión", 
+                f"Capacidad de la conexión entre {origen} y {destino}:",
+                min=1
+            )
+            if not ok:
+                continue
+
+            # Pedir dirección de la conexión
+            direccion, ok = QInputDialog.getItem(
+                self, 
+                "Dirección de Conexión", 
+                f"Seleccione la dirección de la conexión entre {origen} y {destino}:", 
+                ["both", "right", "left"], 
+                0, 
+                False
+            )
+            if not ok:
+                continue
+
+            # Buscar y actualizar los elementos originales
+            for element in nuevo_barrio["elements"]:
+                # Actualizar elemento de origen
+                if element['name'] == origen:
+                    connection_target = (f"+{destino}" if direccion == "right" 
+                                        else f"-{destino}" if direccion == "left" 
+                                        else destino)
+                    element['connections'].append({ 
+                        "target": connection_target, 
+                        "capacity": capacidad
+                    })
+                
+                # Actualizar elemento de destino para conexión bidireccional o inversa
+                if element['name'] == destino:
+                    if direccion == "right":
+                        element['connections'].append({
+                            "target": f"-{origen}",
+                            "capacity": capacidad
+                        })
+                    elif direccion == "left":
+                        element['connections'].append({
+                            "target": f"+{origen}",
+                            "capacity": capacidad
+                        })
+                    else:  # bidirectional
+                        element['connections'].append({
+                            "target": origen,
+                            "capacity": capacidad
+                        })
+
+            # Preguntar si desea agregar más conexiones
+            respuesta = QMessageBox.question(
+                self, 
+                "Conexiones", 
+                "¿Desea agregar más conexiones?", 
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if respuesta == QMessageBox.No:
                 break
 
-            # Agregar la conexión al tanque
-            for tanque in tanques:
-                if tanque['name'] == tanque_name:
-                    tanque['connections'].append({
-                        "target": f"+{casa_name}" if direction == "right" else f"-{casa_name}" if direction == "left" else f"{casa_name}",
-                        "capacity": capacity
-                    })
-
-            # Agregar la conexión a la casa
-            for casa in casas:
-                if casa['name'] == casa_name:
-                    casa['connections'].append({
-                        "target": f"-{tanque_name}" if direction == "right" else f"+{tanque_name}" if direction == "left" else f"{tanque_name}",
-                        "capacity": capacity
-                    })
-
-            # Preguntar si el usuario quiere agregar más conexiones
-            add_more, ok = QInputDialog.getItem(self, "Agregar Más Conexiones", "¿Quieres agregar más conexiones?", ["Sí", "No"], 0, False)
-            if not ok or add_more == "No":
-                break
-
-        # Actualizar el grafo con el nuevo barrio (sin guardar el JSON)
-    
+        # Agregar el nuevo barrio a los datos originales
         self.original_data.append(nuevo_barrio)
+
+        # Guardar cambios y actualizar grafo
         self.save_json(self.original_data)
-        self.update_graph()  # Redibujar el grafo
+        self.update_graph()
         
+        self.analizar_grafo_y_generar_recomendaciones()
+
+        # Mensaje de confirmación
+        QMessageBox.information(
+            self, 
+            "Barrio Agregado", 
+            f"Barrio {barrio_name} agregado exitosamente con {len(tanques)} tanques y {len(casas)} casas."
+        )
+
+        # Log de la acción
         self.log_action(f"Barrio agregado: {barrio_name}")
-        self.log_action(f"  - Tanques: {', '.join([t['name'] for t in tanques])}")
-        self.log_action(f"  - Casas: {', '.join([c['name'] for c in casas])}")
+        self.log_action(f"  - Tanques: {', '.join(tanque['name'] for tanque in tanques)}")
+        self.log_action(f"  - Casas: {', '.join(casa['name'] for casa in casas)}")
         
     def log_action(self, action):
         """Método genérico para registrar acciones en el historial"""
@@ -301,8 +386,12 @@ class WaterSystemGraphVisualizer(QMainWindow):
             self.visualize_graph()
 
             # Guardar los cambios en el archivo JSON actualizado
-            self.save_json(self.original_data)  # Pasar 'self.original_data' correctamente
-
+            self.save_json(self.original_data) 
+            
+            # Pasar 'self.original_data' correctamente
+            
+                
+            self.analizar_grafo_y_generar_recomendaciones()
             # Confirmación de eliminación
             QMessageBox.information(self, "Barrio Eliminado", f"El barrio '{barrio_name}' ha sido eliminado exitosamente.")
             
@@ -418,68 +507,85 @@ class WaterSystemGraphVisualizer(QMainWindow):
         self.canvas.draw()
             
     def optimize_graph_connections(self):
-        """Optimizar conexiones de grafo dirigido"""
-        if self.graph is None:
-            QMessageBox.warning(self, "Error", "Primero cargue un grafo")
-            return
+        """Optimizar conexiones de grafo dirigido""" 
+        if self.graph is None: 
+            QMessageBox.warning(self, "Error", "Primero cargue un grafo") 
+            return 
 
-        try:
-            # Registrar inicio de optimización usando log_action
-            self.log_action("Iniciando Optimización de Conexiones")
+        try: 
+            # Registrar inicio de optimización usando log_action 
+            self.log_action("Iniciando Optimización de Conexiones") 
 
-            # Crear una copia del grafo original para optimizar
-            optimized_graph = self.graph.copy()
+            # Crear una copia del grafo original para optimizar 
+            optimized_graph = self.graph.copy() 
+
+            # Collect all edges with their capacities 
+            edges_with_capacity = [(u, v, data.get('capacidad', 0)) for (u, v, data) in optimized_graph.edges(data=True)] 
+
+            # Sort edges by capacity in ascending order 
+            edges_with_capacity.sort(key=lambda x: x[2]) 
+
+            # Keep track of connected components 
+            connected_components = list(nx.weakly_connected_components(optimized_graph)) 
+
+            # Remove unnecessary edges 
+            removed_edges = [] 
+            for u, v, capacity in edges_with_capacity: 
+                # Remove the edge temporarily 
+                optimized_graph.remove_edge(u, v) 
+
+                # Check if graph remains connected after removing the edge 
+                new_components = list(nx.weakly_connected_components(optimized_graph)) 
+
+                if len(new_components) > len(connected_components): 
+                    # If removing this edge breaks connectivity, add it back 
+                    optimized_graph.add_edge(u, v, capacidad=capacity) 
+                else: 
+                    # Edge is unnecessary, log the removal 
+                    removed_edges.append((u, v, capacity)) 
+                    self.log_action(f"Conexión eliminada: {u} <-> {v} (Capacidad: {capacity} L/s)") 
+                    connected_components = new_components 
+
+                    # Actualizar self.original_data para eliminar la conexión
+                    self.remove_connection_from_data(u, v)
+
+            # Update the graph's edges 
+            self.graph = optimized_graph 
+
+            # Visualize the optimized graph 
+            self.visualize_graph() 
+
+            # Log optimization results 
+            self.log_action(f"Optimización completada. Se eliminaron {len(removed_edges)} conexiones innecesarias.") 
             
-            # Collect all edges with their capacities
-            edges_with_capacity = [(u, v, data.get('capacidad', 0)) for (u, v, data) in optimized_graph.edges(data=True)]
             
-            # Sort edges by capacity in ascending order
-            edges_with_capacity.sort(key=lambda x: x[2])
-
-            # Keep track of connected components
-            connected_components = list(nx.weakly_connected_components(optimized_graph))
-
-            # Remove unnecessary edges
-            removed_edges = []
-            for u, v, capacity in edges_with_capacity:
-                # Remove the edge temporarily
-                optimized_graph.remove_edge(u, v)
                 
-                # Check if graph remains connected after removing the edge
-                new_components = list(nx.weakly_connected_components(optimized_graph))
-                
-                if len(new_components) > len(connected_components):
-                    # If removing this edge breaks connectivity, add it back
-                    optimized_graph.add_edge(u, v, capacidad=capacity)
-                else:
-                    # Edge is unnecessary, log the removal
-                    removed_edges.append((u, v, capacity))
-                    self.log_action(f"Conexión eliminada: {u} <-> {v} (Capacidad: {capacity} L/s)")
-                    connected_components = new_components
+            self.analizar_grafo_y_generar_recomendaciones()
 
-            # Update the graph's edges
-            self.graph = optimized_graph
+            # Show optimization results 
+            results_message = ( 
+                f"Optimización Completada!\n" 
+                f"Se eliminaron {len(removed_edges)} conexiones innecesarias." 
+            ) 
+            QMessageBox.information(self, "Resultados de Optimización", results_message) 
 
-            # Visualize the optimized graph
-            self.visualize_graph()
+            # Guardar cambios en el JSON después de la optimización
+            self.save_json(self.original_data)
 
-            # Log optimization results
-            self.log_action(f"Optimización completada. Se eliminaron {len(removed_edges)} conexiones innecesarias.")
+        except Exception as e: 
+            # Log any errors that occur 
+            self.log_action(f"Error en optimización de conexiones: {str(e)}") 
+            QMessageBox.critical(self, "Error", f"Ocurrió un error al optimizar: {str(e)}") 
 
-            # Show optimization results
-            results_message = (
-                f"Optimización Completada!\n"
-                f"Se eliminaron {len(removed_edges)} conexiones innecesarias."
-            )
-            QMessageBox.information(self, "Resultados de Optimización", results_message)
-
-        except Exception as e:
-            # Log any errors that occur
-            self.log_action(f"Error en optimización de conexiones: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Ocurrió un error al optimizar: {str(e)}")
-        
-        
-        
+    def remove_connection_from_data(self, source, target):
+        """Eliminar la conexión de los elementos en self.original_data."""
+        for barrio in self.original_data:
+            for element in barrio['elements']:
+                # Eliminar conexión del elemento de origen
+                element['connections'] = [conn for conn in element['connections'] if not (conn['target'] == target or conn['target'] == f"+{target}" or conn['target'] == f"-{target}")]
+                # Eliminar conexión del elemento de destino
+                element['connections'] = [conn for conn in element['connections'] if not (conn['target'] == source or conn['target'] == f"+{source}" or conn['target'] == f"-{source}")]
+            
         
     def update_graph(self):
         """Rebuild the graph from self.original_data with correct edge handling"""
@@ -518,118 +624,124 @@ class WaterSystemGraphVisualizer(QMainWindow):
         self.visualize_graph()
         
     def agregar_conexion(self):
-        """Agregar una nueva conexión entre elementos del grafo."""
-        if not self.original_data:
-            QMessageBox.warning(self, "Error", "Primero cargue un grafo")
-            return
+        """Agregar una nueva conexión entre elementos del grafo.""" 
+        if not self.original_data: 
+            QMessageBox.warning(self, "Error", "Primero cargue un grafo") 
+            return 
 
-        # Recopilar todos los elementos de todos los barrios
-        all_elements = []
-        for barrio in self.original_data:
-            all_elements.extend(barrio['elements'])
+        # Recopilar todos los elementos de todos los barrios 
+        all_elements = [] 
+        for barrio in self.original_data: 
+            all_elements.extend(barrio['elements']) 
 
-        # Nombres de todos los elementos para selección
-        element_names = [element['name'] for element in all_elements]
+        # Nombres de todos los elementos para selección 
+        element_names = [element['name'] for element in all_elements] 
 
-        if len(element_names) < 2:
-            QMessageBox.warning(self, "Error", "Se necesitan al menos dos elementos para crear una conexión")
-            return
+        if len(element_names) < 2: 
+            QMessageBox.warning(self, "Error", "Se necesitan al menos dos elementos para crear una conexión") 
+            return 
 
-        # Seleccionar elemento de origen
-        origen, ok1 = QInputDialog.getItem(
-            self,
-            "Seleccionar Origen",
-            "Selecciona el elemento de origen:",
-            element_names,
-            0,
-            False
-        )
-        if not ok1:
-            return
+        # Seleccionar elemento de origen 
+        origen, ok1 = QInputDialog.getItem( 
+            self, 
+            "Seleccionar Origen", 
+            "Selecciona el elemento de origen:", 
+            element_names, 
+            0, 
+            False 
+        ) 
+        if not ok1: 
+            return 
 
-        # Seleccionar elemento de destino (excluyendo el origen)
-        destino_options = [name for name in element_names if name != origen]
-        destino, ok2 = QInputDialog.getItem(
-            self,
-            "Seleccionar Destino",
-            f"Selecciona el elemento de destino para {origen}:",
-            destino_options,
-            0,
-            False
-        )
-        if not ok2:
-            return
+        # Seleccionar elemento de destino (excluyendo el origen) 
+        destino_options = [name for name in element_names if name != origen] 
+        destino, ok2 = QInputDialog.getItem( 
+            self, 
+            "Seleccionar Destino", 
+            f"Selecciona el elemento de destino para {origen}:", 
+            destino_options, 
+            0, 
+            False 
+        ) 
+        if not ok2: 
+            return 
 
-        # Pedir capacidad de la conexión
-        capacidad, ok3 = QInputDialog.getInt(
-            self,
-            "Capacidad de Conexión",
-            f"Ingrese la capacidad de la conexión entre {origen} y {destino}:",
-            min=1
-        )
-        if not ok3:
-            return
+        # Pedir capacidad de la conexión 
+        capacidad, ok3 = QInputDialog.getInt( 
+            self, 
+            "Capacidad de Conexión", 
+            f"Ingrese la capacidad de la conexión entre {origen} y {destino}:", 
+            min=1 
+        ) 
+        if not ok3: 
+            return 
 
-        # Pedir dirección de la conexión
-        direccion, ok4 = QInputDialog.getItem(
-            self,
-            "Dirección de Conexión",
-            f"Seleccione la dirección de la conexión entre {origen} y {destino}:",
-            ["both", "right", "left"],
-            0,
-            False
-        )
-        if not ok4:
-            return
+        # Pedir dirección de la conexión 
+        direccion, ok4 = QInputDialog.getItem( 
+            self, 
+            "Dirección de Conexión", 
+            f"Seleccione la dirección de la conexión entre {origen} y {destino}:", 
+            ["both", "right", "left"], 
+            0, 
+            False 
+        ) 
+        if not ok4: 
+            return 
 
-        # Buscar y actualizar los elementos originales
-        for barrio in self.original_data:
-            for element in barrio['elements']:
-                # Actualizar elemento de origen
-                if element['name'] == origen:
-                    connection_target = (f"+{destino}" if direccion == "right"
-                                        else f"-{destino}" if direccion == "left"
-                                        else destino)
+        # Buscar y actualizar los elementos originales 
+        for barrio in self.original_data: 
+            for element in barrio['elements']: 
+                # Actualizar elemento de origen 
+                if element['name'] == origen: 
+                    connection_target = (f"+{destino}" if direccion == "right" 
+                                        else f"-{destino}" if direccion == "left" 
+                                        else destino) 
 
-                    # Aquí se limita la capacidad a la capacidad máxima del tanque
-                    if element['type'] == 'tank':
-                        capacidad_conexion = min(element['max_capacity'], capacidad)  # Limitar a la capacidad máxima del tanque
-                    else:
-                        capacidad_conexion = capacidad  # Para casas, usar la capacidad proporcionada
+                    # Aquí se limita la capacidad a la capacidad máxima del tanque 
+                    if element['type'] == 'tank': 
+                        capacidad_conexion = min(element['max_capacity'], capacidad)  # Limitar a la capacidad máxima del tanque 
+                    else: 
+                        capacidad_conexion = capacidad  # Para casas, usar la capacidad proporcionada 
 
-                    element['connections'].append({
-                        "target": connection_target,
-                        "capacity": capacidad_conexion  # Usar capacidad limitada
-                    })
+                    element['connections'].append({ 
+                        "target": connection_target, 
+                        "capacity": capacidad_conexion  # Usar capacidad limitada 
+                    }) 
 
-                # Actualizar elemento de destino para conexión bidireccional o inversa
-                if element['name'] == destino:
-                    if direccion == "right":
-                        element['connections'].append({
-                            "target": f"-{origen}",
-                            "capacity": capacidad_conexion
-                        })
-                    elif direccion == "left":
-                        element['connections'].append({
-                            "target": f"+{origen}",
-                            "capacity": capacidad_conexion
-                        })
-                    else:  # bidirectional
-                        element['connections'].append({
-                            "target": origen,
-                            "capacity": capacidad_conexion
-                        })
+                # Actualizar elemento de destino para conexión bidireccional o inversa 
+                if element['name'] == destino: 
+                    if direccion == "right": 
+                        element['connections'].append({ 
+                            "target": f"-{origen}", 
+                            "capacity": capacidad_conexion 
+                        }) 
+                    elif direccion == "left": 
+                        element['connections'].append({ 
+                            "target": f"+{origen}", 
+                            "capacity": capacidad_conexion 
+                        }) 
+                    else:  # bidirectional 
+                        element['connections'].append({ 
+                            "target": origen, 
+                            "capacity": capacidad_conexion 
+                        }) 
 
-        # Guardar cambios y actualizar grafo
-        self.save_json(self.original_data)
-        self.update_graph()
+        # Guardar cambios y actualizar grafo 
+        self.save_json(self.original_data) 
+        self.update_graph() 
 
-        # Mensaje de confirmación
-        QMessageBox.information(
-            self,
-            "Conexión Agregada",
-            f"Conexión entre {origen} y {destino} agregada exitosamente."
-        )
+        # Registrar la acción en el historial 
+        self.log_action(f"Conexión agregada: {origen} <-> {destino} (Capacidad: {capacidad_conexion} L/s, Dirección: {direccion})") 
+
+        self.analizar_grafo_y_generar_recomendaciones()
+
+        # Mensaje de confirmación 
+        QMessageBox.information( 
+            self, 
+            "Conexión Agregada", 
+            f"Conexión entre {origen} y {destino} agregada exitosamente." 
+        ) 
+        
             
     def agregar_tanque(self):
         """Método para agregar un nuevo tanque"""
@@ -711,6 +823,8 @@ class WaterSystemGraphVisualizer(QMainWindow):
         # Log de la acción
         self.log_action(f"Tanque agregado: {tanque_name} en {barrio_name}")
         
+        self.analizar_grafo_y_generar_recomendaciones()
+        
         # Mensaje de confirmación
         QMessageBox.information(
             self, 
@@ -761,6 +875,9 @@ class WaterSystemGraphVisualizer(QMainWindow):
         # Log de la acción
         self.log_action(f"Casa agregada: {casa_name} en {barrio_name}")
         
+        
+                
+        self.analizar_grafo_y_generar_recomendaciones()
         # Mensaje de confirmación
         QMessageBox.information(
             self, 
@@ -830,7 +947,9 @@ class WaterSystemGraphVisualizer(QMainWindow):
 
             # Mostrar detalles del flujo máximo
             QMessageBox.information(self, "Resultado de Flujo Máximo", results_message)
-
+        
+                
+            self.analizar_grafo_y_generar_recomendaciones()
             # Log de la acción
             self.log_action(f"Flujo Máximo calculado: {max_flow_value} L/s desde {source} a {sink}")
 
@@ -839,9 +958,263 @@ class WaterSystemGraphVisualizer(QMainWindow):
             error_message = f"Error al calcular flujo máximo: {str(e)}"
             QMessageBox.critical(self, "Error", error_message)
             self.log_action(error_message)
+            
+    def change_connection_direction(self):
+        """Cambiar la dirección de una conexión existente en el grafo."""
+        if not self.original_data:
+            QMessageBox.warning(self, "Error", "Primero cargue un grafo")
+            return
+
+        # Recopilar todos los elementos de todos los barrios
+        all_elements = []
+        for barrio in self.original_data:
+            all_elements.extend(barrio['elements'])
+
+        # Nombres de todos los elementos para selección
+        element_names = [element['name'] for element in all_elements]
+
+        if len(element_names) < 2:
+            QMessageBox.warning(self, "Error", "Se necesitan al menos dos elementos para cambiar la dirección de una conexión")
+            return
+
+        # Seleccionar elemento de origen
+        origen, ok1 = QInputDialog.getItem(
+            self,
+            "Seleccionar Origen",
+            "Selecciona el elemento de origen:",
+            element_names,
+            0,
+            False
+        )
+        if not ok1:
+            return
+
+        # Seleccionar elemento de destino (excluyendo el origen)
+        destino_options = [name for name in element_names if name != origen]
+        destino, ok2 = QInputDialog.getItem(
+            self,
+            "Seleccionar Destino",
+            f"Selecciona el elemento de destino para {origen}:",
+            destino_options,
+            0,
+            False
+        )
+        if not ok2:
+            return
+
+        # Pedir nueva dirección de la conexión
+        nueva_direccion, ok3 = QInputDialog.getItem(
+            self,
+            "Nueva Dirección de Conexión",
+            f"Selecciona la nueva dirección de la conexión entre {origen} y {destino}:",
+            ["both", "right", "left"],
+            0,
+            False
+        )
+        if not ok3:
+            return
+
+        # Actualizar la dirección en los elementos originales
+        for barrio in self.original_data:
+            for element in barrio['elements']:
+                # Actualizar elemento de origen
+                if element['name'] == origen:
+                    # Buscar la conexión existente
+                    for conn in element['connections']:
+                        if conn['target'] == destino or conn['target'] == f"+{destino}" or conn['target'] == f"-{destino}":
+                            # Mantener la capacidad de la conexión existente
+                            existing_capacity = conn['capacity']
+                            # Eliminar la conexión existente
+                            element['connections'].remove(conn)
+                            break  # Salir del bucle una vez que se encuentra y elimina la conexión
+
+                    # Agregar nueva conexión
+                    connection_target = (f"+{destino}" if nueva_direccion == "right"
+                                        else f"-{destino}" if nueva_direccion == "left"
+                                        else destino)
+                    element['connections'].append({
+                        "target": connection_target,
+                        "capacity": existing_capacity
+                    })
+
+                # Actualizar elemento de destino para conexión bidireccional o inversa
+                if element['name'] == destino:
+                    # Buscar la conexión existente
+                    for conn in element['connections']:
+                        if conn['target'] == origen or conn['target'] == f"+{origen}" or conn['target'] == f"-{origen}":
+                            # Mantener la capacidad de la conexión existente
+                            existing_capacity = conn['capacity']
+                            # Eliminar la conexión existente
+                            element['connections'].remove(conn)
+                            break  # Salir del bucle una vez que se encuentra y elimina la conexión
+
+                    if nueva_direccion == "right":
+                        element['connections'].append({
+                            "target": f"-{origen}",
+                            "capacity": existing_capacity  # Mantener la capacidad
+                        })
+                    elif nueva_direccion == "left":
+                        element['connections'].append({
+                            "target": f"+{origen}",
+                            "capacity": existing_capacity  # Mantener la capacidad
+                        })
+                    else:  # bidirectional
+                        element['connections'].append({
+                            "target": origen,
+                            "capacity": existing_capacity  # Mantener la capacidad
+                        })
+
+        # Guardar cambios en el JSON
+        self.save_json(self.original_data)
+        self.update_graph()
+
+        # Log de la acción
+        self.log_action(f"Dirección de la conexión entre {origen} y {destino} cambiada a '{nueva_direccion}'.")
 
 
-    
+                
+        self.analizar_grafo_y_generar_recomendaciones()
+        # Mensaje de confirmación
+        QMessageBox.information(
+            self,
+            "Dirección Cambiada",
+            f"Dirección de la conexión entre {origen} y {destino} cambiada exitosamente."
+        )
+        
+        
+    def cambiar_capacidad_conexion(self):
+        """Cambiar la capacidad de una conexión existente en el grafo."""
+        if not self.original_data:
+            QMessageBox.warning(self, "Error", "Primero cargue un grafo")
+            return
+
+        # Recopilar todos los elementos de todos los barrios
+        all_elements = []
+        for barrio in self.original_data:
+            all_elements.extend(barrio['elements'])
+
+        # Nombres de todos los elementos para selección
+        element_names = [element['name'] for element in all_elements]
+
+        if len(element_names) < 2:
+            QMessageBox.warning(self, "Error", "Se necesitan al menos dos elementos para cambiar la capacidad de una conexión")
+            return
+
+        # Seleccionar elemento de origen
+        origen, ok1 = QInputDialog.getItem(
+            self,
+            "Seleccionar Origen",
+            "Selecciona el elemento de origen:",
+            element_names,
+            0,
+            False
+        )
+        if not ok1:
+            return
+
+        # Seleccionar elemento de destino (excluyendo el origen)
+        destino_options = [name for name in element_names if name != origen]
+        destino, ok2 = QInputDialog.getItem(
+            self,
+            "Seleccionar Destino",
+            f"Selecciona el elemento de destino para {origen}:",
+            destino_options,
+            0,
+            False
+        )
+        if not ok2:
+            return
+
+        # Pedir nueva capacidad de la conexión
+        nueva_capacidad, ok3 = QInputDialog.getInt(
+            self,
+            "Nueva Capacidad de Conexión",
+            f"Ingrese la nueva capacidad de la conexión entre {origen} y {destino}:",
+            min=1
+        )
+        if not ok3:
+            return
+
+        # Actualizar la capacidad en los elementos originales
+        for barrio in self.original_data:
+            for element in barrio['elements']:
+                # Actualizar elemento de origen
+                if element['name'] == origen:
+                    for conn in element['connections']:
+                        if conn['target'] == destino or conn['target'] == f"+{destino}" or conn['target'] == f"-{destino}":
+                            conn['capacity'] = nueva_capacidad  # Cambiar la capacidad
+                            break  # Salir del bucle una vez que se encuentra y actualiza la conexión
+
+                # Actualizar elemento de destino para conexión bidireccional o inversa
+                if element['name'] == destino:
+                    for conn in element['connections']:
+                        if conn['target'] == origen or conn['target'] == f"+{origen}" or conn['target'] == f"-{origen}":
+                            conn['capacity'] = nueva_capacidad  # Cambiar la capacidad
+                            break  # Salir del bucle una vez que se encuentra y actualiza la conexión
+
+        # Guardar cambios en el JSON
+        self.save_json(self.original_data)
+        self.update_graph()
+
+        # Log de la acción
+        self.log_action(f"Capacidad de la conexión entre {origen} y {destino} cambiada a {nueva_capacidad} L/s.")
+
+
+                
+        self.analizar_grafo_y_generar_recomendaciones()
+        # Mensaje de confirmación
+        QMessageBox.information(
+            self,
+            "Capacidad Cambiada",
+            f"Capacidad de la conexión entre {origen} y {destino} cambiada exitosamente a {nueva_capacidad} L/s."
+        )
+        
+    def analizar_grafo_y_generar_recomendaciones(self):
+        """Analizar el grafo y generar recomendaciones automáticamente."""
+        if not self.graph:
+            return
+
+        recomendaciones = []
+
+        # Verificar conexiones de baja capacidad
+        for (u, v, data) in self.graph.edges(data=True):
+            capacidad_actual = data.get('capacidad', 0)
+            UMBRAL_BAJO = 20  # L/s
+
+            if capacidad_actual < UMBRAL_BAJO:
+                recomendaciones.append(f"Conexión de baja capacidad detectada: {u} -> {v} (Capacidad: {capacidad_actual} L/s)")
+
+        # Verificar tanques y casas sin conexiones
+        for node in self.graph.nodes(data=True):
+            if node[1]['type'] == 'tank':
+                if not self.graph.out_degree(node[0]):
+                    recomendaciones.append(f"Tanque {node[0]} sin conexiones. Considera conectarlo a una casa.")
+            elif node[1]['type'] == 'house':
+                if not self.graph.in_degree(node[0]):
+                    recomendaciones.append(f"Casa {node[0]} sin conexiones. Considera conectarla a un tanque.")
+
+        # Mostrar recomendaciones si hay alguna
+        if recomendaciones:
+            self.mostrar_recomendaciones(recomendaciones)
+
+    def mostrar_recomendaciones(self, recomendaciones):
+        """Mostrar las recomendaciones en un cuadro de diálogo."""
+        dialogo_recomendaciones = QDialog(self)
+        dialogo_recomendaciones.setWindowTitle("Recomendaciones de Optimización")
+        layout = QVBoxLayout()
+
+        for recomendacion in recomendaciones:
+            label = QLabel(recomendacion)
+            layout.addWidget(label)
+
+        # Botón para ignorar
+        btn_ignorar = QPushButton("Ignorar")
+        btn_ignorar.clicked.connect(dialogo_recomendaciones.close)
+        layout.addWidget(btn_ignorar)
+
+        dialogo_recomendaciones.setLayout(layout)
+        dialogo_recomendaciones.exec_()
+
 
 def main():
     app = QApplication(sys.argv)
