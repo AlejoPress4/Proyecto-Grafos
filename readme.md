@@ -28,6 +28,7 @@ Este archivo contiene la clase `WaterSystemGraphVisualizer`, que es la ventana p
 - **`mostrar_recomendaciones(self, recomendaciones)`**: Muestra las recomendaciones en un cuadro de diálogo.
 - **`log_action(self, action)`**: Registra acciones en el historial.
 
+
 ### `models/funtions.py`
 
 Este archivo contiene funciones auxiliares para la gestión y análisis del grafo. A continuación se describen las funciones principales y los algoritmos utilizados:
@@ -36,6 +37,17 @@ Este archivo contiene funciones auxiliares para la gestión y análisis del graf
 - **`calculate_max_flow(G, source=None, sink=None)`**: Calcula el flujo máximo usando el algoritmo de Ford-Fulkerson implementado en `networkx`.
 - **`assign_graph_positions(graph, data)`**: Asigna posiciones a los nodos utilizando el algoritmo de disposición de resorte (`spring_layout`) de `networkx`.
 - **`agregar_conexion(self)`**: Agrega una nueva conexión entre elementos del grafo.
+
+
+## Estructura de Datos JSON
+
+El archivo JSON contiene la estructura de los barrios, tanques, casas y sus conexiones. A continuación se describe la estructura y el manejo de los datos:
+
+- **Barrios**: Cada barrio tiene un nombre y una lista de elementos (tanques y casas).
+- **Tanques**: Cada tanque tiene un nombre, tipo (`tank`), capacidad máxima (`max_capacity`), capacidad actual (`current_capacity`) y una lista de conexiones.
+- **Casas**: Cada casa tiene un nombre, tipo (`house`) y una lista de conexiones.
+- **Conexiones**: Cada conexión tiene un destino (`target`) y una capacidad (`capacity`). El `target` puede tener un prefijo `+` para indicar una conexión hacia la derecha, `-` para indicar una conexión hacia la izquierda, y sin prefijo para indicar una conexión bidireccional.
+
 
 ## Requisitos
 
